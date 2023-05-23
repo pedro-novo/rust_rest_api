@@ -4,8 +4,8 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use dotenv::dotenv;
 
-use crate::models::todo::Todo;
-use crate::repository::schema::todos::dsl::*;
+use crate::models::{todo::Todo, user::User};
+use crate::repository::schema::{todos::dsl::*, users::dsl::*};
 
 pub type DBPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -66,5 +66,47 @@ impl Database {
             .get_result::<Todo>(&mut self.pool.get().unwrap())
             .expect("Error updating todo by id");
         Some(todo)
+    }
+
+    pub fn get_users(&self) -> Vec<User> {
+        users
+            .load::<User>(&mut self.pool.get().unwrap())
+            .expect("Error loading all users")
+    }
+
+    pub fn create_user(&self, user: User) -> Result<User, Error> {
+        let user: User = User {
+            id: uuid::Uuid::new_v4().to_string(),
+            created_at: Some(Utc::now().naive_utc()),
+            ..user
+        };
+        diesel::insert_into(users)
+            .values(&user)
+            .execute(&mut self.pool.get().unwrap())
+            .expect("Error creating new user");
+        Ok(user)
+    }
+
+    pub fn get_user_by_id(&self, user_id: &str) -> Option<User> {
+        let user = users
+            .find(user_id)
+            .get_result::<User>(&mut self.pool.get().unwrap())
+            .expect("Error loading user by id");
+        Some(user)
+    }
+
+    pub fn delete_user_by_id(&self, user_id: &str) -> Option<usize> {
+        let count = diesel::delete(users.find(user_id))
+            .execute(&mut self.pool.get().unwrap())
+            .expect("Error deleting user by id");
+        Some(count)
+    }
+
+    pub fn update_user_by_id(&self, user_id: &str, user: User) -> Option<User> {
+        let user = diesel::update(users.find(user_id))
+            .set(&user)
+            .get_result::<User>(&mut self.pool.get().unwrap())
+            .expect("Error updating user by id");
+        Some(user)
     }
 }
